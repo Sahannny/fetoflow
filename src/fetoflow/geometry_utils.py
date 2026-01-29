@@ -5,11 +5,11 @@ import numpy as np
 def create_geometry(
     nodes,
     elements,
-    inlet_radius,
-    strahler_ratio_arteries,
+    inlet_radius = 1.8/1000,
+    strahler_ratio_arteries = 1.38,
+    outlet_vein_radius=4.0/1000,
+    strahler_ratio_veins=1.46,
     arteries_only=False,
-    outlet_vein_radius=None,
-    strahler_ratio_veins=None,
     fields=None,
     default_mu=0.33600e-02,
     default_hematocrit=0.45,
@@ -59,10 +59,12 @@ def create_geometry(
             # print(node)
     # Add artery radii via strahler ordering
     max_strahler = 0
-    for input_node in input_nodes:
-        for u, v in G.out_edges(input_node):
-            G = update_strahlers(G, u, v)  # update for each input node should work
-            max_strahler = max(max_strahler, G[u][v]["strahler"])
+    G = update_strahler_nonrecursive(G)
+    max_strahler = np.max([data["strahler"] for _, _, data in G.edges(data=True)])
+#    for input_node in input_nodes:
+ #       for u, v in G.out_edges(input_node):
+ #           G = update_strahlers(G, u, v)  # update for each input node should work
+ #           max_strahler = max(max_strahler, G[u][v]["strahler"])
 
     if fields and fields.get("radius"):
         for u, v in G.edges():
@@ -206,9 +208,34 @@ def update_strahlers(G, node_in, node_out):
 
     return G
 
+def update_strahler_nonrecursive(G):
+    order = list(nx.topological_sort(G))
+    order.reverse()
+    node_strahler = {}
+        # 2. Compute node Strahler numbers
+    for n in order:
+        children = list(G.successors(n))
+
+        if len(children) == 0:
+            node_strahler[n] = 1
+        else:
+            child_orders = [node_strahler[c] for c in children]
+            max_order = max(child_orders)
+
+            if child_orders.count(max_order) >= 2:
+                node_strahler[n] = max_order + 1
+            else:
+                node_strahler[n] = max_order
+
+    # 3. Assign edge Strahler numbers
+    for u, v in G.edges():
+        G.edges[u, v]["strahler"] = node_strahler[v]
+
+
+    return G
 
 def calcLength(G, u, v):
-    return np.sqrt(np.sum([(G.nodes[u][coord] - G.nodes[v][coord]) ** 2 for coord in ["x", "y", "z"]])) / 1000  # mm to m!
+    return np.sqrt(np.sum([(G.nodes[u][coord] - G.nodes[v][coord]) ** 2 for coord in ["x", "y", "z"]])) /1000  # mm to m!
     # TODO: Fix unit conversions and makr work for anything etc. i.e. specify units somewhere as an input argument at the start
 
 def create_anastomosis(G, node_from, node_to, radius=None, mu=0.33600e-02):

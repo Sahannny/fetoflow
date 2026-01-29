@@ -10,7 +10,7 @@ def generate_boundary_conditions(inlet_pressure=None, inlet_flow=None, outlet_pr
     if outlet_pressure is None and inlet_flow is None:
         raise TypeError(
             "No valid outlet pressure for boundary condition. "
-            "Currently Reprosim does not support outlet flow boundary conditions and must have a defined outlet pressure."
+            "Currently FetoFlow does not support outlet flow boundary conditions and must have a defined outlet pressure."
         )
     elif outlet_pressure is None and inlet_flow is not None:
         warn("No outlet pressure defined with flow inlet. Setting outlet pressure to 0.")
@@ -57,7 +57,8 @@ def generate_boundary_conditions(inlet_pressure=None, inlet_flow=None, outlet_pr
             )
         elif isinstance(inlet_flow, int) or isinstance(inlet_flow, float):
             if inlet_flow > 1:
-                raise Warning("Flow seems large - make sure you have converted to m^3/s")
+                warn("Flow seems large to be m3/s - Assuming mm3/s input")
+                inlet_flow = inlet_flow*1e-9
             if not inlet_flow > 0:
                 raise ValueError(f"Invalid inlet flow of '{inlet_flow}' Pa. Must be greater than 0.")
             bcs["inlet"] = {"flow": inlet_flow}
