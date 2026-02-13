@@ -1,4 +1,13 @@
 __pycache__/
+
+
+# Mesh / CMISS-like outputs
+*.exnode
+*.exelem
+*.ipnode
+*.ipelem
+*.ipfiel
+
 *.py[cod]
 *.egg
 *.egg-info/

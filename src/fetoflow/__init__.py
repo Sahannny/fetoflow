@@ -3,7 +3,8 @@ from .geometry_utils import (
     calcLength,
     create_anastomosis,
     create_venous_mesh,
-    calculate_branching_angles
+    calculate_branching_angles,
+    update_geometry_with_pressures_and_flows
 )
 from .bc_utils import generate_boundary_conditions
 from .matrix_builder import create_matrices, create_small_matrices
@@ -13,7 +14,21 @@ from .resistance_utils import (
     calculate_convolute_resistance,
     calculate_viscosity_factor_from_radius
 )
-from .file_parsing_utils import read_nodes, read_elements, define_fields_from_files
+from .file_parsing_utils import (
+    read_nodes,
+    read_elements,
+    define_fields_from_files,
+    read_nodes_exnode,
+    read_edges_exelem,
+    define_fields_from_exelem,
+    set_edges_from_array,
+    set_nodes_from_array,
+    define_fields_from_exelem,
+    export_exnode,
+    export_exelem,
+    export_field,
+    export_all
+)
 from .helper_functions import (
     getRadii,
     getEdgeData,
@@ -26,7 +41,10 @@ from .helper_functions import (
 from .pressure_flow_utils import (
     pressures_and_flows,
 )
-from.solve_utils import(
+from .visualise import (
+    visualise_tree,
+)
+from .solve_utils import(
     solve_small_system,
     solve_system,
     update_small_matrix,

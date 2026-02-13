@@ -1,6 +1,6 @@
 import networkx as nx
 import numpy as np
-
+from warnings import warn
 
 def create_geometry(
     nodes,
@@ -311,12 +311,36 @@ def create_anastomosis(G, node_from, node_to, radius=None, mu=0.33600e-02):
     return G
 
 
-def update_geometry_with_pressures_and_flows(G, pressures, flows):
-    for node_id in G.nodes():
-        G.nodes[node_id]["pressure"] = pressures.loc[node_id]["pressure"]
-    for u, v in G.edges():
-        G[u][v]["flow"] = flows.loc[G[u][v]["edge_id"]]["flow"]
+def update_geometry_with_pressures_and_flows(G, pressures, flows, edge_id_attr = "edge_id"):
+    #Check for sizes of arrays
+    if len(pressures) != G.number_of_nodes():
+        warn("Number of Nodes in Digraph does not match number of pressures. Skipping adding pressures/flows to digraph. Note: Double Check outputs.")
+        return G
+    elif len(flows) != G.number_of_edges():
+        warn("Number of Edges in Digraph does not match number of flows. Skipping adding pressures/flows to digraph. Note: Double Check outputs.")
+        return G
+
+    if pressures is not None:
+        nx.set_node_attributes(G, pressures, "pressure")
+
+    if flows is not None:
+        # Case 1: keyed by (u, v)
+        if all(isinstance(k, tuple) and len(k) == 2 for k in flows):
+            nx.set_edge_attributes(G, flows, "flow")
+        else:
+            # Case 2: keyed by edge_id
+            for u, v, data in G.edges(data=True):
+                eid = data.get(edge_id_attr)
+                if eid in flows:
+                    G.edges[u, v]["flow"] = flows[eid]
+
     return G
+
+ #   for node_id in G.nodes():
+ #       G.nodes[node_id]["pressure"] = pressures.loc[node_id]["pressure"]
+ #   for u, v in G.edges():
+ #       G[u][v]["flow"] = flows.loc[G[u][v]["edge_id"]]["flow"]
+ #   return G
 
 def calculate_branching_angles(G):
     # double check...

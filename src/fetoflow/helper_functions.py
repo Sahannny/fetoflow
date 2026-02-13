@@ -55,14 +55,16 @@ def getNumVessels(G):
             count += unique
     return count
 
-
+def display_tree_measurements(G):
+    """
+       Displays the measurements of the tree including resistance of tree, Inlet and outlet pressures and flows, Max Strahler order.
+       TODO: To be added
+    """
+    return
 def export_as_numpy(G,output_form="reduced"):
     """
     Converts a complete digraph to numpy
-    """
-    print("This function is under development!")
-    return 
-    if output_form == "full":
+        if output_form == "full":
         node_export = np.ndarray(shape=(G.number_of_nodes(),4))
         for node,node_data in G.nodes(data=True):
             x,y,z = node_data["x"],node_data["y"],node_data["z"]
@@ -74,3 +76,7 @@ def export_as_numpy(G,output_form="reduced"):
     else:
         print("Use full or reduced")
 
+
+    """
+    print("This function is under development!")
+    return 
