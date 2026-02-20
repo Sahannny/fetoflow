@@ -2,21 +2,64 @@ import polyscope as ps
 import numpy as np
 from collections import defaultdict
 
-def visualise_tree(G, show_flow =True):
+def visualise_tree(G,show_flow =True, region = "all"):
     ps.init()
+    if region == "all" or region == "full" or region == "full_tree":
+        nodes_array = np.array([
+            [G.nodes[n]['x'], G.nodes[n]['y'], G.nodes[n]['z']]
+            for n in G.nodes
+        ])
 
-    nodes_array = np.array([
-        [G.nodes[n]['x'], G.nodes[n]['y'], G.nodes[n]['z']]
-        for n in G.nodes
-    ])
+        # --- Edges as ndarray ---
+        # Each edge is (source, target)
+        edges_array = np.array(G.edges)
+        radius_array = np.array([G.edges[e]['radius'] for e in G.edges])
+        flow_array = np.array([G[u][v]["flow"] for u, v in G.edges()])
 
-    # --- Edges as ndarray ---
-    # Each edge is (source, target)
-    edges_array = np.array(G.edges)
-    radius_array = np.array([G.edges[e]['radius'] for e in G.edges])
+    elif region == "arteries" or region == "artery":
+        radius = []
+        flow = []
+        edge_rows = []
+        artery_nodes = set()
+        for u, v, data in G.edges(data=True):
+            if data.get("vessel_type") == "artery":
+                artery_nodes.add(u)
+                artery_nodes.add(v)
+                edge_rows.append((u, v))
+                radius.append(data['radius'])
+                flow.append(data['flow'])
+        nodes_array = np.array([
+            [data["x"], data["y"], data["z"]]
+            for node, data in G.nodes(data=True)
+            if node in artery_nodes
+        ])
+        radius_array = np.array(radius)
+        edges_array = np.array(edge_rows,dtype=np.int64)
+        flow_array = np.array(flow)
+
+    elif region == "veins" or region == "vein":
+        radius = []
+        flow = []
+        edge_rows = []
+        vein_nodes = set()
+        for u, v, data in G.edges(data=True):
+            if data.get("vessel_type") == "vein":
+                vein_nodes.add(u)
+                vein_nodes.add(v)
+                edge_rows.append((u, v))
+                radius.append(data['radius'])
+                flow.append(data['flow'])
+        nodes_array = np.array([
+            [data["x"], data["y"], data["z"]]
+            for node, data in G.nodes(data=True)
+            if node in vein_nodes
+        ])
+        radius_array = np.array(radius)
+        edges_array = np.array(edge_rows,dtype=np.int64)
+        flow_array = np.array(flow)
+
     joint_radii, _ = compute_joint_radii(nodes_array, edges_array, radius_array)
 
-    flow_array = np.array([G[u][v]["flow"] for u, v in G.edges()])
     print('Visualizing now!')
 
     # Register tree
