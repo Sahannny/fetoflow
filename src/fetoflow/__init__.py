@@ -23,11 +23,13 @@ from .file_parsing_utils import (
     define_fields_from_exelem,
     set_edges_from_array,
     set_nodes_from_array,
+    set_fields_from_array,
     define_fields_from_exelem,
     export_exnode,
     export_exelem,
     export_field,
-    export_all
+    export_all,
+    export_region_as_csv
 )
 from .helper_functions import (
     getRadii,
@@ -36,13 +38,16 @@ from .helper_functions import (
     getNumVessels,
     getRadius,
     getVesselLength,
-    export_as_numpy
+    export_as_numpy,
+    calc_vessel_volume
 )
 from .pressure_flow_utils import (
     pressures_and_flows,
 )
 from .visualise import (
     visualise_tree,
+    visualise_pyvista,
+    get_tree_properties
 )
 from .solve_utils import(
     solve_small_system,

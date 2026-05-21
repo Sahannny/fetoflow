@@ -1,5 +1,6 @@
 import networkx as nx
 import numpy as np
+from .geometry_utils import  calcLength
 def getRadii(G: nx.digraph):
     """
     Returns all radii of all vessels in the Arterial tree as a dictionary:
@@ -80,3 +81,16 @@ def export_as_numpy(G,output_form="reduced"):
     """
     print("This function is under development!")
     return 
+
+def calc_vessel_volume(G, vessel_type = 'all'):
+    total_volume = 0
+    if vessel_type == 'all':
+        for u,v,data in G.edges(data = True):
+            volume = data['length'] * np.pi * (data['radius'] **2)
+            total_volume += volume
+    if vessel_type == 'artery':
+        for u,v,data in G.edges(data = True):
+            if data['vessel_type'] == 'artery':
+                volume = data['length'] * np.pi * (data['radius'] **2)
+                total_volume += volume
+    return total_volume

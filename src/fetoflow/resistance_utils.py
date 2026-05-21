@@ -15,14 +15,14 @@ def calculate_resistance(
             "num_generations": 3,
             "num_convolutes_per_branch": 10,
             "capillary_hematocrit": 0.45,
-            "total_capillary_length": 3.0 / 1000,
-            "capillary_convolute_radius": 7.2e-6,
-            "radius_cap_artery": 1.5e-5,
+            "total_capillary_length": 3.0 ,
+            "capillary_convolute_radius": 7.2e-3,
+            "radius_cap_artery": 1.5e-2,
             "radius_cap_scaling_factor": 2,
             "pries_mu": 0.4e-2,
-            "total_segment_length": 1.5 / 1000,
-            "capillary_length": 3.0 / 6 / 1000,
-            "segment_length": 1.5 / 10 / 1000,
+            "total_segment_length": 1.5 ,
+            "capillary_length": 3.0 / 6 ,
+            "segment_length": 1.5 / 10 ,
         }
 
     valid_viscocity_models = {"constant", "pries_network", "pries_vessel", "flow_dependent"} # Flow-dependent is also pries_vessel but with flow nonlinear stuff.
@@ -80,7 +80,7 @@ def calculate_viscosity_factor_from_radius(radius, hematocrit=0.45):
 
 
 def calculate_convolute_resistance(
-    n_series=3, n_parallel=6, mu=0.33600e-02, visc_factor=1, capillary_length=0.0005, capillary_convolute_radius=7.2e-6
+    n_series=3, n_parallel=6, mu=0.33600e-02, visc_factor=1, capillary_length=0.5, capillary_convolute_radius=7.2e-3
 ):
     # TODO: Check this is valid. FROM REPROSIM CODE.
     R_cap = (
@@ -104,14 +104,14 @@ def calculate_capillary_equivalent_resistance(
             "num_generations": 3,
             "num_convolutes_per_branch": 10,
             "capillary_hematocrit": 0.45,
-            "total_capillary_length": 3.0 / 1000,
-            "capillary_convolute_radius": 7.2e-6,
-            "radius_cap_artery": 1.5e-5,
+            "total_capillary_length": 3.0 ,
+            "capillary_convolute_radius": 7.2e-3,
+            "radius_cap_artery": 1.5e-2,
             "radius_cap_scaling_factor": 2,
             "pries_mu": 0.4e-2,
-            "total_segment_length": 1.5 / 1000,
-            "capillary_length": 3.0 / 6 / 1000, #TODO: Check this should be divided by num_parallel, I think it should be.
-            "segment_length": 1.5 / 10 / 1000,
+            "total_segment_length": 1.5 ,
+            "capillary_length": 3.0 / 6 ,
+            "segment_length": 1.5 / 10 ,
         }
 
     if viscosity_model == "constant":
@@ -123,7 +123,7 @@ def calculate_capillary_equivalent_resistance(
         )  # mu also is default here
     elif viscosity_model == "pries_vessel":
         mu = capillary_parameters["pries_mu"]
-        # TODO: Documentation between cap convolute radius (each convolute) and rad_cap_artery - final intermediate villous segment!
+        # TODO: Documentation between cap convolute radius (each convolute) and rad_cap_artery - final intermediate villous segment! ALSO CHANGE TO MM
         convolute_resistance = calculate_convolute_resistance(
             mu=mu,
             visc_factor=calculate_viscosity_factor_from_radius(
@@ -158,7 +158,7 @@ def calculate_capillary_equivalent_resistance(
     # Vein capillary radius is scaled from the artery capillary radius
     radius_cap_artery = capillary_parameters["radius_cap_artery"]
     radius_cap_vein = radius_cap_artery * capillary_parameters["radius_cap_scaling_factor"]
-    num_generations = capillary_parameters["num_generations"]  # TODO: Tidy up, do I want all variables like this, or keep as indexing dict?
+    num_generations = capillary_parameters["num_generations"]
     # Radii along the tree of intermediate villi are linearly interpolated from the capillary radius (smallest, included as radius of nth generation)
     # to the radius of the incoming artery/vein (largest, not included in the interpolation)
     artery_radii = np.linspace(radius_in_artery, radius_cap_artery, num_generations, endpoint=False)

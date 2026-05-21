@@ -1,13 +1,14 @@
 import networkx as nx
 import numpy as np
 from warnings import warn
+from collections import deque
 
 def create_geometry(
     nodes,
     elements,
-    inlet_radius = 1.8/1000,
+    inlet_radius = 1.8,
     strahler_ratio_arteries = 1.38,
-    outlet_vein_radius=4.0/1000,
+    outlet_vein_radius=4.0,
     strahler_ratio_veins=1.46,
     arteries_only=False,
     fields=None,
@@ -20,56 +21,41 @@ def create_geometry(
     for node_id, coordinates in nodes.items():
         G.add_node(node_id, x=coordinates[0], y=coordinates[1], z=coordinates[2])
     for edge_id, (node_from, node_to) in enumerate(elements):
-        if fields:
-            res = fields.get("resistance")
-            if res:
-                res = fields.get(edge_id, 0)
-            else:
-                res = 0
-            # .get returns None by default if not found
-            radius = fields.get("radius")
-            if radius:
-                radius = radius.get(edge_id)
-            else:
-                radius = None
-        else:
-            res = 0.0
-            radius = None
         length = calcLength(G, node_from, node_to)
         G.add_edge(
             node_from,
             node_to,
             edge_id=edge_id,
-            resistance=res,
+            resistance=None,
             length=length,
-            radius=radius,
+            radius=None,
             strahler=None,
+            branch_number=None,
             vessel_type="artery",
             bifurcation_angle=0,
             mu=default_mu,
             hematocrit=default_hematocrit,
             viscosity_factor=1,
         )
-
+    G = assign_radii_files(G, fields)
     # Find all input nodes (to ensure we give every element a strahler ordering)
     input_nodes = []
     for node in G.nodes():
         if len(G.in_edges(node)) == 0:
             input_nodes.append(node)
-            # print(node)
     # Add artery radii via strahler ordering
     max_strahler = 0
     G = update_strahler_nonrecursive(G)
+    G = update_strahler_nonrecursive(G)
+
     max_strahler = np.max([data["strahler"] for _, _, data in G.edges(data=True)])
-#    for input_node in input_nodes:
- #       for u, v in G.out_edges(input_node):
- #           G = update_strahlers(G, u, v)  # update for each input node should work
- #           max_strahler = max(max_strahler, G[u][v]["strahler"])
 
     if fields and fields.get("radius"):
         for u, v in G.edges():
+            
             if G[u][v]["radius"] is None:
-                elem_strahler = G[u][v]["strahler"]
+                G[u][v]["radius"] = 0.0001
+                '''elem_strahler = G[u][v]["strahler"]
                 # need to update R according to the last specified radius in the subtree
                 radius_found = False
                 inlet_radius_updated = inlet_radius
@@ -89,7 +75,7 @@ def create_geometry(
                             sub_tree_strahler = G[in_node][out_node]["strahler"]
                         else:
                             out_node = in_node
-                G[u][v]["radius"] = inlet_radius_updated * strahler_ratio_arteries ** (elem_strahler - sub_tree_strahler)
+                G[u][v]["radius"] = inlet_radius_updated * strahler_ratio_arteries ** (elem_strahler - sub_tree_strahler)'''
     else:
         for u, v in G.edges():
             elem_strahler = G[u][v]["strahler"]
@@ -131,6 +117,7 @@ def create_geometry(
                 length=None,
                 radius=0.0,
                 strahler=0.0,
+                branch_number =0,
                 vessel_type="capillary_equivalent",
                 mu=default_mu,
                 hematocrit=default_hematocrit,
@@ -207,12 +194,46 @@ def update_strahlers(G, node_in, node_out):
         G[node_in][node_out]["strahler"] = max_child_strahler + 1  # 2 arcs coming in with same max value
 
     return G
+def Strahler_numbering(di_graph :nx.DiGraph, inlet):
+    di_graph = di_graph.copy()
+    strahler_mapping = {}
+    post_order_nodes = nx.dfs_postorder_nodes(di_graph, source=inlet)
+    for node in post_order_nodes:
+        children = nx.dfs_successors(di_graph, source=node, depth_limit=1)
+        if len(children) == 0:
+            strahler_mapping[node] = {'strahler_order' : 1}
+        else:
+            children = children[node]
+            strahler_set = []
+            for child in children:
+                strahler_set.append(strahler_mapping[child]['strahler_order'])
+
+            strahler_set.sort()
+            if len(strahler_set) > 1:
+                if strahler_set[-1] == strahler_set[-2]:
+                    strahler_mapping[node] = {'strahler_order' : strahler_set[-1] + 1}
+                else:
+                    strahler_mapping[node] = {'strahler_order' : strahler_set[-1]}
+            else:
+                strahler_mapping[node] = {'strahler_order' : strahler_set[-1]}
+
+    nx.set_node_attributes(di_graph, strahler_mapping)
+
+    return di_graph
+
+def set_edge_strahler(G):
+    for u,v in G.edges():
+        strahler_list = [G.nodes[u]["strahler_order"], G.nodes[v]["strahler_order"]]
+
+        G[u][v]["strahler"] = np.min(strahler_list)
+    return G
 
 def update_strahler_nonrecursive(G):
-    order = list(nx.topological_sort(G))
+    '''order = list(nx.topological_sort(G))
     order.reverse()
     node_strahler = {}
         # 2. Compute node Strahler numbers
+
     for n in order:
         children = list(G.successors(n))
 
@@ -230,12 +251,60 @@ def update_strahler_nonrecursive(G):
     # 3. Assign edge Strahler numbers
     for u, v in G.edges():
         G.edges[u, v]["strahler"] = node_strahler[v]
+    '''
+    inlet_nodes = [u for u, v in G.edges() if G.in_degree(u) == 0]
+
+    terminal_edges = [(u, v) for u, v in G.edges() if G.out_degree(v) == 0]
+    bifurcation_edges = [(u, v) for u, v in G.edges() if G.out_degree(v) == 2]
+    bifurcation_nodes = [v for u, v in G.edges() if G.out_degree(v) == 2]
 
 
+    #di_graph = G.copy()
+    #strahler_mapping = {}
+    nodes_array = set()
+    #node_list = nx.dfs_postorder_nodes(di_graph, source=inlet_nodes[0])
+    #nodes_array.add(remap_node_field_for_vis(G, np.asarray(nodes_array)))
+
+    node_list =  list(nx.topological_sort(G))
+    node_list.reverse()
+    for nodes in node_list:
+        #Check out edges to see if bifurcation or terminal 
+        if G.out_degree(nodes) == 0: #Terminal
+            if G.in_degree(nodes) == 2:
+                print("bifurcation/anastomosis") #dont think this should happen
+            elif G.in_degree(nodes) == 1: #should be almost always
+                edge = list(G.in_edges(nodes))[0] #Upstream edge of node
+                G[edge[0]][edge[1]]["strahler"] = 1
+        elif G.out_degree(nodes) == 1: #Normal edge
+            if G.in_degree(nodes) == 2:
+                print("bifurcation/anastomosis") #dont think this should happen
+            elif G.in_degree(nodes) == 1:
+                edge_in = list(G.in_edges(nodes))[0] #Upstream edge of node
+                edge_out = list(G.out_edges(nodes))[0] #Downstream edge of node
+                G[edge_in[0]][edge_in[1]]["strahler"] = G[edge_out[0]][edge_out[1]]["strahler"]
+            elif G.in_degree(nodes) == 0:
+                print("inlet detected")
+
+                none_edges = [(u, v) for u, v, data in G.edges(data=True)
+                              if data.get('strahler') == None]
+
+                if none_edges:
+                    raise ValueError(f"The following edges have radius=None: {len(none_edges)}")
+        elif G.out_degree(nodes) == 2: #Bifurcation
+            if G.in_degree(nodes) == 2: 
+                ValueError("Fetoflow cannot assign strahler orders for two incoming edges and two outgoing edges. Check the tree structure to avoid loops")
+            elif G.in_degree(nodes) == 1:
+                edge_in = list(G.in_edges(nodes))[0] #Upstream edge of node
+                edge_out_1 = list(G.out_edges(nodes))[0] #Downstream first edge of node
+                edge_out_2 = list(G.out_edges(nodes))[1] #Downstream second edge of node
+                if G[edge_out_1[0]][edge_out_1[1]]["strahler"] == G[edge_out_2[0]][edge_out_2[1]]["strahler"]:
+                    G[edge_in[0]][edge_in[1]]["strahler"] = G[edge_out_2[0]][edge_out_2[1]]["strahler"] + 1
+                else:
+                    G[edge_in[0]][edge_in[1]]["strahler"] = np.max([G[edge_out_2[0]][edge_out_2[1]]["strahler"],G[edge_out_1[0]][edge_out_1[1]]["strahler"]])
     return G
 
 def calcLength(G, u, v):
-    return np.sqrt(np.sum([(G.nodes[u][coord] - G.nodes[v][coord]) ** 2 for coord in ["x", "y", "z"]])) /1000  # mm to m!
+    return np.sqrt(np.sum([(G.nodes[u][coord] - G.nodes[v][coord]) ** 2 for coord in ["x", "y", "z"]]))   # mm to m!
     # TODO: Fix unit conversions and makr work for anything etc. i.e. specify units somewhere as an input argument at the start
 
 def create_anastomosis(G, node_from, node_to, radius=None, mu=0.33600e-02):
@@ -368,6 +437,28 @@ def calculate_branching_angles(G):
             continue
     return
 
+
+def assign_radii_files(G, fields):
+    if fields:
+        radii = fields.get("radius")
+        if radii:
+            for u,v,data in G.edges(data=True):
+                edge_id = data["edge_id"]
+                if edge_id < len(radii): #check that ed
+                    radius = radii.get(edge_id)
+                    data["radius"] = radius
+
+            return G    
+        else:
+            return G
         
+        
+        res = fields.get("resistance")
+        if res:
+            res = fields.get(edge_id, 0)
+        else:
+            res = 0
+        # .get returns None by default if not found
 
-
+    else:
+        return G

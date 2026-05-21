@@ -58,7 +58,7 @@ def generate_boundary_conditions(inlet_pressure=None, inlet_flow=None, outlet_pr
         elif isinstance(inlet_flow, int) or isinstance(inlet_flow, float):
             if inlet_flow > 1:
                 warn("Flow seems large to be m3/s - Assuming mm3/s input")
-                inlet_flow = inlet_flow*1e-9
+                inlet_flow = inlet_flow
             if not inlet_flow > 0:
                 raise ValueError(f"Invalid inlet flow of '{inlet_flow}' Pa. Must be greater than 0.")
             bcs["inlet"] = {"flow": inlet_flow}
