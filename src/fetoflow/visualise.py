@@ -26,7 +26,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
         strahler = []
 
         for u, v, data in G.edges(data=True):
-            if data.get("vessel_type") == "artery":
+            if data.get("vessel_type") == "artery" or data.get("vessel_type") == "anastomosis":
                 artery_nodes.add(u)
                 artery_nodes.add(v)
                 edge_rows.append((u, v))

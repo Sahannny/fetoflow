@@ -94,3 +94,24 @@ def calc_vessel_volume(G, vessel_type = 'all'):
                 volume = data['length'] * np.pi * (data['radius'] **2)
                 total_volume += volume
     return total_volume
+
+
+def build_inlet_map(G, inlets):
+    """
+    Returns {node: inlet_node} for every node in G.
+    Works for any number of disconnected trees.
+    """
+    node_to_inlet = {}
+
+    for inlet in inlets:
+        # BFS from each inlet, following directed edges
+        queue = deque([inlet])
+        node_to_inlet[inlet] = inlet
+        while queue:
+            node = queue.popleft()
+            for successor in G.successors(node):
+                if successor not in node_to_inlet:  # avoid revisiting
+                    node_to_inlet[successor] = inlet
+                    queue.append(successor)
+
+    return node_to_inlet
