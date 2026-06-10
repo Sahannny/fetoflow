@@ -3,12 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 
 [project]
 name = "fetoflow"
-version = "0.1.6"
+version = "0.1.7"
 description = "A Python library for fetoplacental vasculature modelling."
 readme = "README.md"
 requires-python = ">=3.8"
 license = { text = "Apache-2.0" }
 authors = [
+{ name = "Sahan Jayatissa"},
   { name = "Jordan Blennerhassett" },
   { name = "Jude Beullens" }
 ]

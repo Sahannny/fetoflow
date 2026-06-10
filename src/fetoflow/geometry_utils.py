@@ -159,8 +159,50 @@ def create_venous_mesh(
 
     G.remove_edges_from(edges_to_remove)
     outlets = [n for n, d in venous_mesh.in_degree() if d == 0]
-    outlet_edges = [(u, v, data) for u, v,data in venous_mesh.edges(data=True) if venous_mesh.in_degree(u) == 0]
+    outlet_edges = [(u, v, data) for u, v, data in venous_mesh.edges(data=True) if venous_mesh.in_degree(u) == 0]
+    edge_to_inlet = build_edge_inlet_map(venous_mesh, outlets)
+    max_edge_id = max(data['edge_id'] for u, v, data in venous_mesh.edges(data=True))
+    if single_umbilical_vein:
+        inlet1 = venous_mesh.nodes[outlets[0]]
+        inlet2 = venous_mesh.nodes[outlets[1]]
 
+        # 2. Midpoint for junction
+        mid = {
+            'x': (inlet1['x'] + inlet2['x']) / 2,
+            'y': (inlet1['y'] + inlet2['y']) / 2,
+            'z': (inlet1['z'] + inlet2['z']) / 2,
+        }
+        z_value = (venous_mesh.nodes[outlet_edges[0][1]]['z'] + venous_mesh.nodes[outlet_edges[1][1]]['z'])/2
+        venous_mesh.nodes[outlets[0]].update({'x': mid['x'], 'y': mid['y'], 'z': z_value})
+
+        venous_mesh.nodes[outlets[1]].update({'x': mid['x'], 'y': mid['y'], 'z': z_value + (venous_mesh.edges[outlet_edges[0][0], outlet_edges[0][1]]['length'])})
+        edge_data1 = venous_mesh.edges[outlet_edges[0][0], outlet_edges[0][1]]
+        edge_data2 = venous_mesh.edges[outlet_edges[1][0], outlet_edges[1][1]]
+        venous_mesh.remove_edge(outlet_edges[1][0], outlet_edges[1][1])
+        venous_mesh.add_edge(outlet_edges[0][0], outlet_edges[1][1], **edge_data2)
+        venous_mesh[outlet_edges[0][0]][outlet_edges[1][1]]['length'] = calcLength(venous_mesh, outlet_edges[0][0],
+                                                                                   outlet_edges[1][1])
+        venous_mesh.add_edge(
+            outlet_edges[1][0],
+            outlet_edges[0][0],
+            edge_id= max_edge_id + 1,
+            resistance=None,
+            length=None,
+            radius=0.0,
+            strahler=0.0,
+            branch_number=0,
+            vessel_type="vein",
+            default_mu=0.33600e-02,
+            default_hematocrit=0.45,
+            viscosity_factor=1,
+        )
+        venous_mesh[outlet_edges[1][0]][outlet_edges[0][0]]['length'] = calcLength(venous_mesh, outlet_edges[1][0], outlet_edges[0][0])
+        if venous_mesh[outlet_edges[0][0]][outlet_edges[0][1]]['strahler'] ==  venous_mesh[outlet_edges[0][0]][outlet_edges[1][1]]['strahler']:
+            venous_mesh[outlet_edges[1][0]][outlet_edges[0][0]]['strahler'] = venous_mesh[outlet_edges[0][0]][outlet_edges[0][1]]['strahler'] +1
+        else:
+            venous_mesh[outlet_edges[1][0]][outlet_edges[0][0]]['strahler'] = np.max([venous_mesh[outlet_edges[0][0]][outlet_edges[0][1]]['strahler'],  venous_mesh[outlet_edges[0][0]][outlet_edges[1][1]]['strahler']])
+    outlets = [n for n, d in venous_mesh.in_degree() if d == 0]
+    outlet_edges = [(u, v, data) for u, v, data in venous_mesh.edges(data=True) if venous_mesh.in_degree(u) == 0]
     edge_to_inlet = build_edge_inlet_map(venous_mesh, outlets)
     for u, v in venous_mesh.edges():
         # Edge ids for veins are after capillaries
