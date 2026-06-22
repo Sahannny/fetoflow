@@ -82,7 +82,7 @@ def define_fields_from_files(files: dict[str]):
             while i < len(lines):
                 j = i + 2
                 id = (
-                    int(lines[i][-max_digits-1:].strip()) - 1
+                    int(lines[i].split(':')[-1].strip()) - 1
                 )  # assuming for now these correspond to element ids, -1 to 0 based
                 val = float(lines[j][lines[j].find(":")+1:].strip())
                 currentField[id] = val
