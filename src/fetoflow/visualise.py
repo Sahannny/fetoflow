@@ -17,6 +17,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
         radius_array = np.array([G.edges[e]['radius'] for e in G.edges])
         flow_array = np.array([G[u][v]["flow"] for u, v in G.edges()])
         strahler_array = np.array([G[u][v]["strahler"] for u, v in G.edges()])
+        shear_array = np.array([G[u][v]["shear_stress"] for u, v in G.edges()])
 
     elif region == "arteries" or region == "artery":
         radius = []
@@ -24,7 +25,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
         edge_rows = []
         artery_nodes = set()
         strahler = []
-
+        shear = []
         for u, v, data in G.edges(data=True):
             if data.get("vessel_type") == "artery" or data.get("vessel_type") == "anastomosis":
                 artery_nodes.add(u)
@@ -33,6 +34,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
                 radius.append(data['radius'])
                 flow.append(data['flow'])
                 strahler.append(data['strahler'])
+                shear.append(data['shear_stress'])
         nodes_array = np.array([
             [data["x"], data["y"], data["z"]]
             for node, data in G.nodes(data=True)
@@ -42,6 +44,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
         edges_array = np.array(edge_rows,dtype=np.int64)
         flow_array = np.array(flow)
         strahler_array = np.array(strahler)
+        shear_array = np.array(shear)
 
     elif region == "veins" or region == "vein":
         radius = []
@@ -49,6 +52,7 @@ def visualise_tree(G,show_flow =True, region = "all"):
         edge_rows = []
         vein_nodes = set()
         strahler = []
+        shear = []
         for u, v, data in G.edges(data=True):
             if data.get("vessel_type") == "vein":
                 vein_nodes.add(u)
@@ -57,6 +61,8 @@ def visualise_tree(G,show_flow =True, region = "all"):
                 radius.append(data['radius'])
                 flow.append(data['flow'])
                 strahler.append(data['strahler'])
+                shear.append(data['shear_stress'])
+
         nodes_array = np.array([
             [data["x"], data["y"], data["z"]]
             for node, data in G.nodes(data=True)
@@ -65,7 +71,9 @@ def visualise_tree(G,show_flow =True, region = "all"):
         radius_array = np.array(radius)
         edges_array = np.array(edge_rows,dtype=np.int64)
         flow_array = np.array(flow)
-        strahler_array = array(strahler)
+        strahler_array = np.array(strahler)
+        shear_array = np.array(shear)
+
     joint_radii, _ = compute_joint_radii(nodes_array, edges_array, radius_array)
 
     print('Visualizing now!')
@@ -76,10 +84,12 @@ def visualise_tree(G,show_flow =True, region = "all"):
                              enabled=True)  # this is sufficient to visualise varied edge radii
     tree.set_node_radius_quantity("Node Radius")  # this is sufficient to visualise varied edge radii
     if show_flow:
+        tree.add_scalar_quantity("Edge strahler", strahler_array, defined_on='edges',
+                                 enabled=True)  # this is sufficient to visualise varied edge radii
+        tree.add_scalar_quantity("Edge Shear", shear_array, defined_on='edges',
+                                 enabled=True)  # this is sufficient to visualise varied edge radii
         tree.add_scalar_quantity("Edge flow", flow_array, defined_on='edges',
                                  enabled=True)  # this is sufficient to visualise varied edge radii
-
-
     # Set up planes
     cor_plane_pos = ps.add_scene_slice_plane()
     cor_plane_pos.set_pose([0, 0, 0], [0, 1, 0])

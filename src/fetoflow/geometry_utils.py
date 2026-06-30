@@ -12,8 +12,7 @@ def create_geometry(
         strahler_ratio_veins=1.46,
         arteries_only=False,
         fields=None,
-        single_umbilical_vein=True, #TODO: Take out
-        anastomosis_edge=4, #TODO: Take out
+        single_umbilical_vein=True,
         default_mu=0.33600e-02,
         default_hematocrit=0.45,
 ):
@@ -38,6 +37,9 @@ def create_geometry(
             mu=default_mu,
             hematocrit=default_hematocrit,
             viscosity_factor=1,
+            shear_stress = 0.0,
+            wall_thickness = 0.0,
+            elastance = 5e5
         )
     G = assign_radii_files(G, fields)
     # Find all input nodes (to ensure we give every element a strahler ordering)
@@ -127,13 +129,15 @@ def create_geometry(
                 mu=default_mu,
                 hematocrit=default_hematocrit,
                 viscosity_factor=1,
-
+                shear_stress = 0.0,
+                wall_thickness = 0.0,
+                elastance = 5e5
             )
             # Update length of these vessels - we calculate the resistance in 'calculate_resistance()' function.
             G[arterial_node][venous_node]["length"] = calcLength(G, arterial_node, venous_node)
             # Leave radius as 0 - this allows visualisations not including the capillary networks,
             #  which would only show a single vessel anyway (not the tree of the intermediate and terminal villi).
-
+        G = assign_wall_thickness(G)
 
     return G
 
@@ -195,6 +199,9 @@ def create_venous_mesh(
             default_mu=0.33600e-02,
             default_hematocrit=0.45,
             viscosity_factor=1,
+            shear_stress = 0.0,
+            wall_thickness = 0.0,
+            elastance = 5e5
         )
         venous_mesh[outlet_edges[1][0]][outlet_edges[0][0]]['length'] = calcLength(venous_mesh, outlet_edges[1][0], outlet_edges[0][0])
         if venous_mesh[outlet_edges[0][0]][outlet_edges[0][1]]['strahler'] ==  venous_mesh[outlet_edges[0][0]][outlet_edges[1][1]]['strahler']:
@@ -212,6 +219,7 @@ def create_venous_mesh(
         elemStrahler = venous_mesh[u][v]["strahler"]
         if edge_to_inlet[u,v] == outlet_edges[0][0]:
             venous_mesh[u][v]["radius"] = outlet_vein_radius * strahler_ratio_veins ** (elemStrahler - outlet_edges[0][2]['strahler'])
+
         elif edge_to_inlet[u,v] == outlet_edges[1][0]:
             venous_mesh[u][v]["radius"] = outlet_vein_radius * strahler_ratio_veins ** (elemStrahler - outlet_edges[1][2]['strahler'])
 
@@ -407,7 +415,10 @@ def create_anastomosis(G, node_from, node_to, radius=None, mu=0.33600e-02):
         vessel_type="anastomosis",
         mu=mu,
         hematocrit=0.45,  # TODO PARAMETERISE
-        viscosity_factor=1
+        viscosity_factor=1,
+        shear_stress=0.0,
+        wall_thickness=0.0,
+        elastance=5e5
     )
     # Old implementation:
     # - defines a radius of the anastomosis which is used
@@ -464,6 +475,7 @@ def update_geometry_with_pressures_and_flows(G, pressures, flows, edge_id_attr="
                 eid = data.get(edge_id_attr)
                 if eid in flows:
                     G.edges[u, v]["flow"] = flows[eid]
+                    G.edges[u, v]["shear_stress"] = (4 * 0.33600e-02 * flows[eid]) / (np.pi * (G.edges[u,v]["radius"] ** 3))
 
     return G
 
@@ -510,7 +522,6 @@ def assign_radii_files(G, fields):
                 if edge_id < len(radii):  # check that ed
                     radius = radii.get(edge_id)
                     data["radius"] = radius
-
             return G
         else:
             return G
@@ -553,3 +564,11 @@ def build_edge_inlet_map(G, inlets):
                     queue.append(successor)
 
     return edge_to_inlet
+
+def assign_wall_thickness(G):
+    for u,v, data in G.edges(data=True):
+        if data['radius'] > 0.125:
+            data['wall_thickness'] = data['radius'] * 0.2
+        else:
+            data['wall_thickness'] = data['radius'] * 0.8
+    return G
